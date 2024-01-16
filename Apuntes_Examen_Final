@@ -1,0 +1,199 @@
+---DOCKER---
+-Ver contenedores en marcha --> sudo docker ps
+-Ver contenedores creados --> sudo docker ps -a
+-Ver imágenes creads --> sudo docker images
+-Borrar contenedor --> sudo docker rm ID/nombrecontenedor
+-Borrar imágen --> sudo docker rmi ID/nombreimagen
+-Borrar todos los contenedores e imágenes creadas --> sudo docker prune
+-Fichero Docker para elasticsearch:
+	vim docker-compose.yaml
+		services:
+		  elasticsearch:
+		    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.1
+		    container_name: elasticsearch
+		    environment:
+		      - discovery.type=single-node
+		      - xpack.security.enabled=false
+		    volumes:
+		      - data01:/usr/share/elasticsearch
+		    ports:
+		      - 9200:9200
+		      - 9300:9300
+		  volumes:
+		    data01:
+-Levantar contenedor --> sudo docker compose up
+-Comprobar funcionamiento: (google)
+	-Google cloud --> IP_EXTERNA:9200
+	-Local --> localhost:9200
+
+---ELASTICSEARCH---
+- Descargar ficheros --> curl -O url.zip
+- Descargar ficheros --> wget url 
+- Descomprimir --> unzip name.zip 
+
+- Recuperar índices --> curl 127.0.0.1:9200/_cat/indices?v
+- Leer mapping de un índice --> curl -XGET 127.0.0.1:9200/nomIndex/_mapping
+- Nº de docs de un índice --> curl -XGET 127.0.0.1:9200/nombreIndex/_count?pretty
+- Documentos de un índice --> curl -XGET 127.0.0.1:9200/nombreIndex/_search?pretty
+
+- Crear un índice --> curl -H "Content-Type: application/json" -XPUT 127.0.0.1:9200/nombreIndex
+- Cargar un documento --> curl -H "Content-Type: application/json" -XPOST 127.0.0.1:9200/nombreIndex/_doc/ID --data-binary @name.json
+- Cargar varios documentos --> curl -H "Content-Type: application/json" -XPUT '127.0.0.1:9200/nombreIndex/_bulk' --data-binary @name.json
+
+- Añadir campos a un índice --> 
+-- (Dos formas) --
+$ curl -H "Content-Type: application/json" -XPUT '127.0.0.1:9200/nombreIndex/_mapping?pretty' -d '{
+   "properties":{"campoA":{"type":"text"},"campoB":{"type":"integer"}}
+ }'
+ 
+$ curl -H "Content-Type: application/json" -XPUT '127.0.0.1:9200/nombreIndex' -d '{"mappings": {"properties": {"campoA": {"type": "text"}, "campoB":{"type":"integer"}}}}'
+
+- Cargar datos --> Crear un documento json (name.json): "luego bulk"
+	{"index":{"_id":"1"}}
+	{"campoA":"abc","campoB":10}
+	{"index":{"_id":"2"}}
+	{"campoA":"def","campoB":23}
+
+- Modificar un documento --> curl -H "Content-Type: application/json" -XPOST '127.0.0.1:9200/nombreIndex/_update/ID' -d {"doc":{"campoB":100}}
+- Eliminar un documento --> curl -XDELETE '127.0.0.1:9200/nombreIndex/_doc/ID' 
+- Buscar 10 resultados --> curl -H "Content-Type: application/json" -XGET '127.0.0.1:9200/nombreIndex/_search?pretty' -d '{"from":0,"size":10}'
+- Buscar los 2º 10 resultados --> curl -H "Content-Type: application/json" -XGET 'localhost:9200/nombreIndex/_search?pretty' -d '{"from": 10, "size":10}'
+
+- Ciudad Bilbao --> curl -H "Content-Type: application/json" -XGET '127.0.0.1:9200/nombreIndex/_search?pretty' -d '{"query":{"match":{"city":"bilbao"}}}'
+-Ordenar por edad ascendente --> curl -H "Content-Type: application/json" -XGET '127.0.0.1:9200/nombreIndex/_search?pretty' -d '{"sort":[{"age":"asc"}}]}' //desc
+-Pais X pero no Y ciudad --> curl -H "Content-Type: application/json" -XGET '127.0.0.1:9200/nombreIndex/_search?pretty' -d '{
+   "query":{"bool":{
+     "must":[{"match":{"country":"x"}}],
+     "must_not":[{"match":{"city":"y"}}]
+   }}
+ }'
+- Pais "X" pero no ciudad "Y", solo ciudadanos >30 años -->
+$ curl -H "Content-Type: application/json" -XGET 'localhost:9200/nombreIndice/_search?pretty' -d 
+'{
+	"query":{
+		"bool"{
+			"filter":[{
+				"match":{"pais":"X"}
+			}],
+			"must":[{
+				"range":{"edad": {"gt":30}}
+			}],
+			must_not[{
+				"match":{"ciudad": "Y"}
+			}]
+		}
+	}
+}'
+
+- Encontrar nombre que empiece por 'N' -->
+$ curl -H "Content-Type: application/json" -XGET 'localhost:9200/nombreIndice/_search?pretty' -d 
+'{
+	"query":{
+		"prefix":{
+			"nombre": "N"
+		}
+	}
+}'
+
+- Encontrar una calle que empieza por 6 y termina por court --> 
+$ curl -H "Content-Type: application/json" -XGET 'localhost:9200/nombreIndice/_search?pretty' -d 
+'{
+	"query":{
+		"wildcard":{
+			"calle":{
+				"value":"6*court"
+			}
+		}
+	}
+}'
+
+- Encontrar balances entre 400 y 499 -->
+$ curl -H "Content-Type: application/json" -XGET 'localhost:9200/nombreIndice/_search?pretty' -d 
+'{
+	"query":{
+		"regex":{
+			"balance":{
+				"value": "4[0-9]{2}"
+			}	
+		}
+	}
+}'
+
+-Buscar nombre Paco, como Pco --> curl -H "Content-Type: application/json" -XGET '127.0.0.1:9200/nombreIndex/_search?pretty' -d '{"query":{"fuzzy": "nombre"{"value": "pco"}}}'
+-Más búsquedas:
+	-Filter --> Dentro de un bool
+	-Should --> Dentro de un filter, y dentro de otro bool dentro del filter --> [{}] "Se cumple una u otra"
+	-Match_phrase --> Como match pero para frases largas
+		-Variante --> "match_phrase":{"desc":{"query":"la casa es azul", "slop":2}} --> Consigue también la azul casa
+	-Multi_match --> "multi_match": {"query":"roja","fields":["campoA","campoB"]} --> "permite hacer la misma query en múltiples campos"
+	-Prefix --> Dentro del query
+	-Expresiones regulares "regexp":
+		- ab. --> 1 (cualquiera)
+		- a+b+ --> 1..*
+		- ab* --> 0..*
+		- ab? --> 0..1
+		- a{3}b --> 3
+		- a{2,4} --> 2..4
+		- a{2,} --> 2..
+		- | --> Or
+		- [abc] --> a o b o c
+		- [a-c] --> a o b o c
+		- [^abc] --> cualquiera menos a b o c
+
+---LOGSTASH---
+-mkdir logstash
+-cd logstash
+-vim docker-file.yml
+	services:
+	  elasticsearch:
+	    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.1
+	    container_name: elasticsearch
+	    environment:
+	      - discovery.type=single-node
+	      - xpack.security.enabled=false
+	    volumes:
+	      - data01:/usr/share/elasticsearch/data
+	    ports:
+	      - 9200:9200
+	      - 9300:9300
+	  logstash:
+	    image: docker.elastic.co/logstash/logstash:8.5.1
+	    container_name: logstash
+	    volumes:
+	      - ./pipeline/usr/share/logstash/pipeline
+	    ports:
+	      - 9563:9563
+	    depends_on:
+	      - elasticsearch
+	volumes:
+	  data01:
+	  
+-vim logstash.conf
+	input{
+	  http{
+	    port => '9563'
+	  }
+	}
+	filter{
+	  json{
+	    source => "message"
+	    target => "doc"
+	  }
+	  grok{match => {"message" => "%{...} %{...}"}}  ¡quitar el json de arriba!
+	}
+	output{
+	  stdout{}
+	  elasticseach{
+	    index => "nombreIndex"
+	  }
+	}
+	
+-sudo docker compose up
+-curl 127.0.0.1:9563 -d 'Hola mundo'
+
+-Enviar objetos json al índice de elasticsearch --> curl 127.0.0.1:9563 -d {"campoA":"A","campoB":"B"}
+-Enviar objetos json al índice de elasticsearch --> curl 127.0.0.1:9900 -d  {json obtenido del grok}
+-Grok --> https://github.com/logstash-plugins/logstash-patterns-core/blob/main/patterns/ecs-v1/grok-patterns
+	  https://www.javainuse.com/grok
+-Eliminar datos (dentro de filter)--> mutate{remove_field => ["nombreCampoA","nombreCampoB"]}
+-Codición para no procesar objetos X (dentro de filter) --> if [campoA] == "X" {drop{}} 
