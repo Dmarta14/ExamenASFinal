@@ -1,0 +1,117 @@
+
+TENEMOS QUE CAMBIAR LA IP QUE PONE Y PONER LA DE NUESTRA INSTANCIA
+
+Tarea: Crear índice “servidores”
+
+TIPO PUT
+URI  35.234.167.199:9200/servidores
+CUERPO
+{
+    "mappings": {
+        "properties": {
+            "fabricante": {"type": "text"},
+            "nombre": {"type": "text"},
+            "precio": {"type": "float"}
+        }
+    }
+}
+###################################################################################
+Tarea: Crear índice “logs”
+
+TIPO PUT
+URI 35.234.167.199:9200/logs
+CUERPO
+{
+    "mappings": {
+        "properties": {
+            "emisor": {"type": "text"},
+            "fecha": {"type": "date"},
+            "mensaje": {"type": "text"}
+        }
+    }
+}
+###################################################################################
+Tarea: Añadir servidores
+TIPO PUT
+URI 35.234.167.199:9200/servidores/_bulk
+CUERPO
+{"create": {"_index": "servidores", "_id": "1"} }
+{"id": "1", "fabricante": "Dell", "nombre": "PowerEdge R6", "precio": 4200.4}
+{"create": {"_index": "servidores", "_id": "2"} }
+{"id": "2", "fabricante": "Dell", "nombre": "PowerEdge R7", "precio": 7200.7}
+{"create": {"_index": "servidores", "_id": "3"} }
+{"id": "3", "fabricante": "HP", "nombre": "ProLiant RL", "precio": 8110.2}
+###################################################################################
+Tarea: Añadir logs (curl)
+curl -H "Content-Type: application/json" -XPUT '35.234.167.199:9200/logs/_bulk' --data-binary @ej1_logs.json
+###################################################################################
+Tarea: Modificar precio Dell
+TIPO POST
+URI 35.234.167.199:9200/servidores/_update/2
+CUERPO
+{
+    "doc": {
+        "precio": 9010.5
+    }
+}
+###################################################################################
+
+Tarea: Servidores cuyo precio sea inferior a 8000
+TIPO GET
+URI 35.234.167.199:9200/servidores/_search
+CUERPO
+{
+    "query":
+    {
+        "bool": {
+            "filter": {"range": {"precio": {"lt": 8000.0}}}
+        }  
+    }
+}
+###################################################################################
+Tarea: Búsqueda de servidores con “edll”
+TIPO GET
+URI 35.234.167.199:9200/servidores/_search
+CUERPO
+{ "query" : {
+        "fuzzy" : {
+            "fabricante" : {
+                "value": "edll"
+            }
+        }
+    }
+}
+###################################################################################
+Tarea: Emisores cuyo nombre acaba por “d”
+TIPO GET
+URI 35.234.167.199:9200/logs/_search
+CUERPO
+{
+    "query":
+    {
+        "wildcard": {"emisor": "*d"}
+    }
+}
+###################################################################################
+Tarea: Logs ordenados por fecha ascendente
+TIPO GET
+URI 35.234.167.199:9200/logs/_search
+CUERPO
+{
+    "sort": {
+        "fecha": {"order": "asc"}
+    }
+}
+###################################################################################
+Tarea: Borrar servidor de HP
+TIPO POST
+URI 35.234.167.199:9200/servidores/_delete_by_query
+CUERPO
+{
+    "query": {
+        "match": {
+            "fabricante": "HP"
+        }
+    }
+}
+###################################################################################
